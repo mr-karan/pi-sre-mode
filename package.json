@@ -1,0 +1,46 @@
+{
+  "name": "pi-sre-mode",
+  "version": "0.1.0",
+  "description": "Pi-native incident investigation workflow with support for private overlays.",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "sre",
+    "incident-response",
+    "operations"
+  ],
+  "files": [
+    "extensions",
+    "skills",
+    "prompts",
+    "src",
+    "README.md"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./overlay-types": "./src/overlay-types.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "smoke-test": "bun run examples/smoke-test/smoke-test.mjs"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "typescript": "^5.9.2"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions"
+    ],
+    "skills": [
+      "./skills"
+    ],
+    "prompts": [
+      "./prompts"
+    ]
+  }
+}

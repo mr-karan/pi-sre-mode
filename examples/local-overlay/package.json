@@ -1,0 +1,16 @@
+{
+  "name": "pi-sre-mode-local-overlay",
+  "private": true,
+  "type": "module",
+  "pi": {
+    "extensions": [
+      "./extensions"
+    ],
+    "skills": [
+      "./skills"
+    ],
+    "prompts": [
+      "./prompts"
+    ]
+  }
+}
