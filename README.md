@@ -43,7 +43,7 @@ Install the public package globally in `~/.pi/agent/settings.json`:
 ```json
 {
   "packages": [
-    "npm:@your-scope/pi-sre-mode"
+    "npm:pi-sre-mode"
   ]
 }
 ```
@@ -73,7 +73,7 @@ More detailed installation examples are in `docs/007-installation.md`.
 
 ## Status
 
-Initial scaffold implemented.
+MVP scaffold implemented and validated with both public-only and overlay smoke tests.
 
 ## Smoke test
 

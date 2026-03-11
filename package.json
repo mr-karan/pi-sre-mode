@@ -3,6 +3,16 @@
   "version": "0.1.0",
   "description": "Pi-native incident investigation workflow with support for private overlays.",
   "type": "module",
+  "license": "MIT",
+  "author": "mr-karan",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mr-karan/pi-sre-mode.git"
+  },
+  "homepage": "https://github.com/mr-karan/pi-sre-mode#readme",
+  "bugs": {
+    "url": "https://github.com/mr-karan/pi-sre-mode/issues"
+  },
   "keywords": [
     "pi-package",
     "pi",
@@ -15,7 +25,8 @@
     "skills",
     "prompts",
     "src",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "exports": {
     ".": "./src/index.ts",
@@ -23,13 +34,14 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "smoke-test": "bun run examples/smoke-test/smoke-test.mjs"
+    "smoke-test": "node examples/smoke-test/smoke-test.mjs",
+    "prepublishOnly": "npm run typecheck && npm run smoke-test -- --public-only"
   },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": "*"
+    "@mariozechner/pi-coding-agent": "^0.57.0"
   },
   "devDependencies": {
-    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-coding-agent": "^0.57.0",
     "typescript": "^5.9.2"
   },
   "pi": {

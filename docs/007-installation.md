@@ -21,7 +21,7 @@ This keeps the public workflow broadly available while limiting private operatio
 ```json
 {
   "packages": [
-    "npm:@your-scope/pi-sre-mode"
+    "npm:pi-sre-mode"
   ]
 }
 ```
@@ -111,7 +111,7 @@ pi install -l /path/to/pi-sre-overlay-zerodha
 After publishing, these become:
 
 ```bash
-pi install npm:@your-scope/pi-sre-mode
+pi install npm:pi-sre-mode
 pi install -l git:git@github.com:your-org/pi-sre-overlay-zerodha.git
 ```
 

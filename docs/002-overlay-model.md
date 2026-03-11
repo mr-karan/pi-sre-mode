@@ -29,7 +29,7 @@ Provides:
 ```json
 {
   "packages": [
-    "npm:@your-scope/pi-sre-mode"
+    "npm:pi-sre-mode"
   ]
 }
 ```
@@ -39,7 +39,7 @@ Provides:
 ```json
 {
   "packages": [
-    "npm:@your-scope/pi-sre-mode",
+    "npm:pi-sre-mode",
     "git:git@github.com:your-org/pi-sre-overlay.git"
   ]
 }
