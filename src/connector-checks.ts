@@ -60,7 +60,7 @@ export async function runConnectorChecks(exec: ExecFunction, checks: ConnectorCh
 	return Promise.all(
 		checks.map(async (check) => {
 			try {
-				const result = await exec("bash", ["-lc", check.command], {
+				const result = await exec("bash", ["-o", "pipefail", "-lc", check.command], {
 					timeout: (check.timeoutSeconds ?? 10) * 1000,
 				});
 				const output = trimOutput(`${result.stdout}\n${result.stderr}`);
