@@ -39,8 +39,6 @@ const child = spawn(piBin, ["--mode", "rpc", "--no-session"], {
 	env: {
 		...process.env,
 		HOME: homeDir,
-		PROMQLCLI_BIN: process.env.PROMQLCLI_BIN || "echo",
-		LOGCHEF_BIN: process.env.LOGCHEF_BIN || "echo",
 	},
 	stdio: ["pipe", "pipe", "pipe"],
 });
@@ -92,8 +90,9 @@ try {
 	assert(commands.some((command) => command.name === "report"), "report command not loaded");
 
 	if (overlayEnabled) {
-		assert(commands.some((command) => command.name === "zerodha-investigate"), "zerodha-investigate prompt not loaded");
-		assert(commands.some((command) => command.name === "skill:incident-orchestrator"), "incident-orchestrator skill command not loaded");
+		// Overlay-specific commands are verified here. Adjust these to match
+		// whatever prompts and skills your overlay provides.
+		assert(commands.length > 3, "overlay should register additional commands");
 	}
 
 	await runPrompt("/incident");
@@ -121,7 +120,7 @@ try {
 	const reportPath = path.join(workspaceDir, relativeReportPath);
 	assert(fs.existsSync(reportPath), `report file does not exist: ${reportPath}`);
 	const reportContent = fs.readFileSync(reportPath, "utf8");
-	assert(reportContent.includes("Service: kite-api"), "report does not include service");
+	assert(reportContent.includes("Service: test-service"), "report does not include service");
 	assert(reportContent.includes("Since: 2h"), "report does not include time window");
 	assert(uiRequests.some((request) => request.method === "set_editor_text"), "report did not push markdown into editor");
 
@@ -164,7 +163,7 @@ function handleLine(line) {
 
 function respondToUiRequest(request) {
 	if (request.method === "select") {
-		const option = request.options.find((entry) => entry.includes("Zerodha Service Investigation")) ?? request.options[0];
+		const option = request.options[0];
 		send({ type: "extension_ui_response", id: request.id, value: option });
 		return;
 	}
@@ -172,7 +171,7 @@ function respondToUiRequest(request) {
 	if (request.method === "input") {
 		const title = String(request.title || "");
 		if (title.includes("Service")) {
-			send({ type: "extension_ui_response", id: request.id, value: "kite-api" });
+			send({ type: "extension_ui_response", id: request.id, value: "test-service" });
 			return;
 		}
 		if (title.includes("Time window")) {
