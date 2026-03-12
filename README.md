@@ -96,13 +96,16 @@ bun run smoke-test -- --overlay /path/to/private-overlay
 Current commands in the public extension:
 - `/incident`
 - `/incident-reset`
+- `/sudo`
+- `/sudo-off`
 - `/check-connectors`
 - `/report`
 
 Current features:
 - persisted incident-mode session state
 - prompt injection via `before_agent_start`
-- read-only blocking for `write` / `edit` and unsafe bash patterns
+- read-only blocking for `write` / `edit` and unsafe bash patterns while incident guardrails are active
+- separate `/sudo` mode to bypass incident permission checks when needed
 - connector preflight checks
 - markdown report generation
 - overlay registration via `incident-mode:register-overlay`

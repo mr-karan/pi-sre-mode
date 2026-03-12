@@ -6,6 +6,10 @@ import {
 	runConnectorChecks,
 } from "../src/connector-checks";
 import {
+	buildGuardrailsPromptSection,
+	getGuardrailBlockReason,
+} from "../src/guardrails";
+import {
 	INCIDENT_MODE_OVERLAY_EVENT,
 	type EffectiveOverlayConfig,
 	type IncidentOverlay,
@@ -24,40 +28,26 @@ import {
 	type IncidentModeState,
 } from "../src/state";
 import {
-	BASELINE_INVESTIGATION_RULES,
+	defaultSudoModeState,
+	formatSudoModeStatus,
+	persistSudoModeState,
+	restoreSudoModeState,
+	type SudoModeState,
+} from "../src/sudo-mode";
+import {
 	findIncidentTemplate,
 	mergeIncidentTemplates,
 } from "../src/template-catalog";
 
 const STATUS_KEY = "incident-mode";
 const CHECK_STATUS_KEY = "incident-mode-checks";
+const SUDO_STATUS_KEY = "incident-sudo";
 const WIDGET_KEY = "incident-mode";
-
-const TOKEN_PREFIX = "(?:^|[\\s'\"`;()|&])";
-const OPTIONAL_PATH_PREFIX = "(?:\\\\)?(?:/(?:usr/)?bin/)?";
-
-const BLOCKED_BASH_PATTERNS: Array<{ match: RegExp; reason: string }> = [
-	{ match: new RegExp(`${TOKEN_PREFIX}${OPTIONAL_PATH_PREFIX}sudo(?:\\s|$)`), reason: "Incident mode blocks sudo." },
-	{ match: new RegExp(`${TOKEN_PREFIX}${OPTIONAL_PATH_PREFIX}rm(?:\\s|$)`), reason: "Incident mode blocks file deletion." },
-	{ match: new RegExp(`${TOKEN_PREFIX}${OPTIONAL_PATH_PREFIX}mv(?:\\s|$)`), reason: "Incident mode blocks file moves and renames." },
-	{ match: new RegExp(`${TOKEN_PREFIX}${OPTIONAL_PATH_PREFIX}chmod(?:\\s|$)`), reason: "Incident mode blocks permission changes." },
-	{ match: new RegExp(`${TOKEN_PREFIX}${OPTIONAL_PATH_PREFIX}chown(?:\\s|$)`), reason: "Incident mode blocks ownership changes." },
-	{ match: new RegExp(`${TOKEN_PREFIX}${OPTIONAL_PATH_PREFIX}(?:kill|pkill|killall)(?:\\s|$)`), reason: "Incident mode blocks process termination." },
-	{ match: /(?:^|\s)(?:\/bin\/)?(?:ba|z)?sh\s+-[a-z]*c\b/, reason: "Incident mode blocks shell trampoline commands like bash -c." },
-	{ match: /(?:^|\s)(?:env\s+)?(?:bash|sh|zsh|dash)\s+-[a-z]*c\b/, reason: "Incident mode blocks shell trampoline commands like sh -c." },
-	{ match: /(^|\s)eval(\s|$)/, reason: "Incident mode blocks eval-style command execution." },
-	{ match: /\$\(/, reason: "Incident mode blocks subshell command execution." },
-	{ match: /`[^`]*`/, reason: "Incident mode blocks backtick command substitution." },
-	{ match: /systemctl\s+(restart|stop|start)\b/, reason: "Incident mode blocks systemctl mutations." },
-	{ match: /nomad\s+job\s+(run|stop|dispatch)\b/, reason: "Incident mode blocks mutating Nomad job commands." },
-	{ match: /nomad\s+alloc\s+stop\b/, reason: "Incident mode blocks mutating Nomad allocation commands." },
-	{ match: /aws\s+[a-z0-9-]+\s+(create|delete|update|put|run|start|stop|terminate|reboot|cp|sync|mv|rm)\b/i, reason: "Incident mode blocks mutating AWS CLI commands." },
-	{ match: /(^|\s)tee(\s|$)/, reason: "Incident mode blocks tee because it can write or truncate files." },
-];
 
 export default function incidentMode(pi: ExtensionAPI) {
 	const overlays = new Map<string, IncidentOverlay>();
 	let currentState = defaultIncidentState();
+	let sudoModeState = defaultSudoModeState();
 	let lastContext: ExtensionContext | undefined;
 
 	const unsubscribeOverlayRegistration = pi.events.on(INCIDENT_MODE_OVERLAY_EVENT, (payload) => {
@@ -90,6 +80,7 @@ export default function incidentMode(pi: ExtensionAPI) {
 	function restoreState(ctx: ExtensionContext): void {
 		lastContext = ctx;
 		currentState = restoreIncidentState(ctx);
+		sudoModeState = restoreSudoModeState(ctx);
 		applyUi(ctx, currentState, getEffectiveOverlayConfig());
 	}
 
@@ -102,17 +93,32 @@ export default function incidentMode(pi: ExtensionAPI) {
 		applyUi(ctx, currentState, getEffectiveOverlayConfig());
 	}
 
-	function carryIncidentStateAcrossBranch(ctx: ExtensionContext, reason: string): void {
-		const previousState = currentState;
-		restoreState(ctx);
-		if (!previousState.enabled) return;
-		if (currentState.enabled) return;
-
-		setState(ctx, {
-			...previousState,
+	function setSudoMode(ctx: ExtensionContext, enabled: boolean): void {
+		sudoModeState = {
+			enabled,
 			updatedAt: Date.now(),
-		});
-		ctx.ui.notify(`Incident mode carried into this branch after ${reason}.`, "info");
+		};
+		persistSudoModeState(pi, sudoModeState);
+		applyUi(ctx, currentState, getEffectiveOverlayConfig());
+	}
+
+	function carryStateAcrossBranch(ctx: ExtensionContext, reason: string): void {
+		const previousState = currentState;
+		const previousSudoModeState = sudoModeState;
+		restoreState(ctx);
+
+		if (previousState.enabled && !currentState.enabled) {
+			setState(ctx, {
+				...previousState,
+				updatedAt: Date.now(),
+			});
+			ctx.ui.notify(`Incident mode carried into this branch after ${reason}.`, "info");
+		}
+
+		if (previousSudoModeState.enabled && !sudoModeState.enabled) {
+			setSudoMode(ctx, true);
+			ctx.ui.notify(`Sudo mode carried into this branch after ${reason}.`, "warning");
+		}
 	}
 
 	function applyUi(ctx: ExtensionContext, state: IncidentModeState, config: EffectiveOverlayConfig): void {
@@ -121,6 +127,7 @@ export default function incidentMode(pi: ExtensionAPI) {
 		const template = findIncidentTemplate(config.templates, state.templateId);
 		const status = formatIncidentStatus(state, template?.label);
 		ctx.ui.setStatus(STATUS_KEY, status);
+		ctx.ui.setStatus(SUDO_STATUS_KEY, formatSudoModeStatus(sudoModeState));
 
 		const widget = buildIncidentWidgetLines(state, template?.label, config.timezoneHint, config.defaultSkills);
 		ctx.ui.setWidget(WIDGET_KEY, widget);
@@ -131,11 +138,11 @@ export default function incidentMode(pi: ExtensionAPI) {
 	});
 
 	pi.on("session_tree", async (_event, ctx) => {
-		carryIncidentStateAcrossBranch(ctx, "tree navigation");
+		carryStateAcrossBranch(ctx, "tree navigation");
 	});
 
 	pi.on("session_fork", async (_event, ctx) => {
-		carryIncidentStateAcrossBranch(ctx, "fork");
+		carryStateAcrossBranch(ctx, "fork");
 	});
 
 	pi.on("session_switch", async (_event, ctx) => {
@@ -152,7 +159,7 @@ export default function incidentMode(pi: ExtensionAPI) {
 		const config = getEffectiveOverlayConfig();
 		const template = findIncidentTemplate(config.templates, currentState.templateId);
 		const sections = [
-			BASELINE_INVESTIGATION_RULES,
+			buildGuardrailsPromptSection(sudoModeState.enabled),
 			buildIncidentContextSection(currentState, template?.label),
 			template?.prompt ? `## Template Focus\n${template.prompt}` : undefined,
 			config.timezoneHint ? `## Timezone Hint\n- ${config.timezoneHint}` : undefined,
@@ -169,19 +176,11 @@ export default function incidentMode(pi: ExtensionAPI) {
 
 	pi.on("tool_call", async (event) => {
 		if (!currentState.enabled) return;
+		if (sudoModeState.enabled) return;
 
-		if (event.toolName === "write" || event.toolName === "edit") {
-			return { block: true, reason: "Incident mode is read-only and blocks write/edit tools." };
-		}
-
-		if (event.toolName !== "bash") return;
-		const command = typeof event.input.command === "string" ? event.input.command.trim() : undefined;
-		if (!command) return;
-
-		for (const rule of BLOCKED_BASH_PATTERNS) {
-			if (!rule.match.test(command)) continue;
-			return { block: true, reason: rule.reason };
-		}
+		const reason = getGuardrailBlockReason(event.toolName, event.input as Record<string, unknown>);
+		if (!reason) return;
+		return { block: true, reason };
 	});
 
 	pi.registerCommand("incident", {
@@ -230,6 +229,36 @@ export default function incidentMode(pi: ExtensionAPI) {
 			});
 			ctx.ui.setStatus(CHECK_STATUS_KEY, undefined);
 			ctx.ui.notify("Incident mode cleared", "info");
+		},
+	});
+
+	pi.registerCommand("sudo", {
+		description: "Enable sudo mode and bypass incident permission checks",
+		handler: async (_args, ctx) => {
+			lastContext = ctx;
+			if (sudoModeState.enabled) {
+				ctx.ui.notify("Sudo mode is already active. Permission checks are bypassed.", "warning");
+				applyUi(ctx, currentState, getEffectiveOverlayConfig());
+				return;
+			}
+
+			setSudoMode(ctx, true);
+			ctx.ui.notify("Sudo mode is active. Permission checks will be bypassed.", "warning");
+		},
+	});
+
+	pi.registerCommand("sudo-off", {
+		description: "Disable sudo mode and restore incident permission checks",
+		handler: async (_args, ctx) => {
+			lastContext = ctx;
+			if (!sudoModeState.enabled) {
+				ctx.ui.notify("Sudo mode is already disabled.", "info");
+				applyUi(ctx, currentState, getEffectiveOverlayConfig());
+				return;
+			}
+
+			setSudoMode(ctx, false);
+			ctx.ui.notify("Sudo mode disabled. Incident permission checks restored.", "info");
 		},
 	});
 

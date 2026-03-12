@@ -1,13 +1,5 @@
 import type { IncidentOverlay, IncidentTemplate } from "./overlay-types";
 
-export const BASELINE_INVESTIGATION_RULES = `## Incident Mode Constraints
-- Treat this session as read-only incident investigation.
-- Prefer evidence over speculation.
-- State uncertainty explicitly.
-- Build a timeline before concluding root cause.
-- Use relevant skills before improvising complex workflows.
-- Keep conclusions operator-friendly: findings, evidence, impact, next actions.`;
-
 export const DEFAULT_TEMPLATES: IncidentTemplate[] = [
 	{
 		id: "5xx-spike",
