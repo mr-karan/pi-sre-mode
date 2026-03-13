@@ -1,6 +1,10 @@
+<a href="https://zerodha.tech"><img src="https://zerodha.tech/static/images/github-badge.svg" align="right" /></a>
+
 # pi-sre-mode
 
-An incident investigation mode for [Pi](https://github.com/mariozechner/pi-coding-agent). Open a terminal, start an incident, investigate with real tools, write a report — all without leaving Pi.
+An incident investigation mode for [Pi](https://pi.dev/). Open a terminal, start an incident, investigate with real tools, write a report — all without leaving Pi.
+
+![The /incident wizard showing template selection](./docs/pi-sre-investigate.png)
 
 ## Why
 
